@@ -16,7 +16,10 @@ _deps/
 .DS_Store
 
 # Editors / IDEs
-.vscode/
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
 .idea/
 *.swp
 
