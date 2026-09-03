@@ -12,6 +12,9 @@ find_package(OpenGL REQUIRED)
 
 add_executable(SandPhysics
     src/main.cpp
+    src/shader.cpp
+    src/renderer.cpp
+    src/simulation.cpp
 )
 
 target_link_libraries(SandPhysics PRIVATE
