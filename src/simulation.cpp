@@ -59,8 +59,6 @@ void Simulation::step() {
                         bufferArray[i][j] = 1;
                         bufferVelocity[i][j] = 0;
                     }
-                    
-
                 }
             }
         }

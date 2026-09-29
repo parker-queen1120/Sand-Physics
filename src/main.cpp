@@ -58,8 +58,11 @@ int main() {
     std::cout << "OpenGL version: " << glGetString(GL_VERSION) << "\n";
     std::cout << "GLSL version: " << glGetString(GL_SHADING_LANGUAGE_VERSION) << "\n";
 
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-    const int cellSize = 5;
+    const int cellSize = 8;
+    const int gridSize = 30;
     int gridCols = width / cellSize;
     int gridRows = height / cellSize;
 
@@ -82,15 +85,15 @@ int main() {
         double deltaTime = now - lastTime;
         lastTime = now;
 
+        double mouseX, mouseY;
+        glfwGetCursorPos(window, &mouseX, &mouseY);
         if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS) {
-            double mouseX, mouseY;
-            glfwGetCursorPos(window, &mouseX, &mouseY);
             int col = (int)(mouseX / cellSize);
             int row = (int)(mouseY / cellSize);
             simulation.placeAt(row, col);
         }
 
-        renderer.draw(simulation.cellArray, projection);
+        renderer.draw(simulation.cellArray, projection, glm::vec2((float)mouseX, (float)mouseY), gridSize, cellSize);
         simulation.update(deltaTime);
 
         glfwSwapBuffers(window);

@@ -30,6 +30,43 @@ void main() {
 }
 )";
 
+static const char* gridVertexShaderSrc = R"(
+#version 330 core
+layout (location = 0) in vec2 aPos;
+
+uniform mat4 uProjection;
+out vec2 vPos;
+
+void main() {
+    gl_Position = uProjection * vec4(aPos, 0.0, 1.0);
+    vPos = aPos;
+}
+)";
+
+static const char* gridFragmentShaderSrc = R"(
+#version 330 core
+in vec2 vPos;
+out vec4 FragColor;
+
+uniform vec2 uCursorPos;
+uniform float uRadius;
+uniform float uCellSize;
+
+void main() {
+    vec2 gridPos = mod(vPos, uCellSize);
+    bool onLine = gridPos.x < 1.0 || gridPos.y < 1.0;
+
+    float dist = distance(vPos, uCursorPos);
+    float fade = 1.0 - smoothstep(uRadius * 0.5, uRadius, dist);
+
+    if (!onLine) discard;
+
+    float maxAlpha = 0.8;
+    FragColor = vec4(.7, .7, .7, fade * maxAlpha);
+}
+)";
+
+
 static void updateGridTexture(GLuint texture, const std::vector<std::vector<int>>& cellArray, int gridCols, int gridRows) {
     std::vector<unsigned char> gridPixels(gridCols * gridRows);
     
@@ -79,9 +116,10 @@ void Renderer::init(int width, int height, int cols, int rows) {
     glBindVertexArray(0);
 
     shader = createShaderProgram(sandVertexShaderSrc, sandFragmentShaderSrc);
+    gridShader = createShaderProgram(gridVertexShaderSrc, gridFragmentShaderSrc);
 }
 
-void Renderer::draw(const std::vector<std::vector<int>>& cellArray, const glm::mat4& projection) {
+void Renderer::draw(const std::vector<std::vector<int>>& cellArray, const glm::mat4& projection, glm::vec2 cursorPos, int gridRadius, int cellSize) {
     updateGridTexture(texture, cellArray, gridCols, gridRows);
 
     useProgram(shader);
@@ -93,6 +131,15 @@ void Renderer::draw(const std::vector<std::vector<int>>& cellArray, const glm::m
     glUniform1i(glGetUniformLocation(shader, "uGridTexture"), 0);
     glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
     glBindVertexArray(0);
+
+    useProgram(gridShader);
+    glUniformMatrix4fv(glGetUniformLocation(gridShader, "uProjection"), 1, GL_FALSE, &projection[0][0]);
+    glUniform2f(glGetUniformLocation(gridShader, "uCursorPos"), cursorPos.x, cursorPos.y);
+    glUniform1f(glGetUniformLocation(gridShader, "uRadius"), (float)gridRadius);
+    glUniform1f(glGetUniformLocation(gridShader, "uCellSize"), (float)cellSize);
+    glBindVertexArray(vao);
+    glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
+    glBindVertexArray(0);
 }
 
 void Renderer::cleanup() {
@@ -100,4 +147,5 @@ void Renderer::cleanup() {
     glDeleteBuffers(1, &vbo);
     glDeleteTextures(1, &texture);
     glDeleteProgram(shader);
+    glDeleteProgram(gridShader);
 }
