@@ -1,5 +1,6 @@
 #include "renderer.h"
 #include "shader.h"
+#include "materials.h"
 
 // vert shader for the sand
 static const char* sandVertexShaderSrc = R"(
@@ -25,8 +26,7 @@ out vec4 FragColor;
 uniform sampler2D uGridTexture;
 
 void main() {
-    float cell = texture(uGridTexture, vTexCoord).r;
-    FragColor = mix(vec4(0.08, 0.08, 0.1, 1.0), vec4(1.0, 0.8, 0.4, 1.0), cell);
+    FragColor = vec4(texture(uGridTexture, vTexCoord).rgb, 1.0);
 }
 )";
 
@@ -68,15 +68,20 @@ void main() {
 
 
 static void updateGridTexture(GLuint texture, const std::vector<std::vector<int>>& cellArray, int gridCols, int gridRows) {
-    std::vector<unsigned char> gridPixels(gridCols * gridRows);
+    std::vector<unsigned char> gridPixels(gridCols * gridRows * 3);
     
     for (int row = 0; row < gridRows; ++row) {
         for (int col = 0; col < gridCols; ++col) {
-            gridPixels[row * gridCols + col] = (unsigned char)(cellArray[row][col] * 255);
-        }
+            const MaterialInfo& mat = materials[cellArray[row][col]];
+            int idx = (row * gridCols + col) * 3;
+            gridPixels[idx] = (unsigned char)(mat.r);
+            gridPixels[idx + 1] = (unsigned char)(mat.g);
+            gridPixels[idx + 2] = (unsigned char)(mat.b);
+            
+            }
     }
     glBindTexture(GL_TEXTURE_2D, texture);
-    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, gridCols, gridRows, GL_RED, GL_UNSIGNED_BYTE, gridPixels.data());
+    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, gridCols, gridRows, GL_RGB, GL_UNSIGNED_BYTE, gridPixels.data());
 }
 
 void Renderer::init(int width, int height, int cols, int rows) {
@@ -89,7 +94,7 @@ void Renderer::init(int width, int height, int cols, int rows) {
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, gridCols, gridRows, 0, GL_RED, GL_UNSIGNED_BYTE, nullptr);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, gridCols, gridRows, 0, GL_RGB, GL_UNSIGNED_BYTE, nullptr);
 
     std::vector<float> gridQuadVertices = {
         //    x,           y,          u,   v
@@ -124,7 +129,6 @@ void Renderer::draw(const std::vector<std::vector<int>>& cellArray, const glm::m
 
     useProgram(shader);
     glUniformMatrix4fv(glGetUniformLocation(shader, "uProjection"), 1, GL_FALSE, &projection[0][0]);
-    glUniform4f(glGetUniformLocation(shader, "uColor"), 1.0f, 0.5f, 0.2f, 1.0f);
     glBindVertexArray(vao);
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, texture);

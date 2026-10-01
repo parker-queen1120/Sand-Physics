@@ -3,9 +3,13 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <iostream>
+bool showGrid = false;
 
 #include "simulation.h"
 #include "renderer.h"
+
+static int selectedMaterial = 1;
+#include "materials.h"
 
 static void framebufferSizeCallback(GLFWwindow* window, int width, int height) {
     glViewport(0, 0, width, height);
@@ -14,6 +18,16 @@ static void framebufferSizeCallback(GLFWwindow* window, int width, int height) {
 static void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods) {
     if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS) {
         glfwSetWindowShouldClose(window, GLFW_TRUE);
+    }
+
+    if (key == GLFW_KEY_G && action == GLFW_PRESS) {
+        showGrid = !showGrid;
+    }
+    if (key == GLFW_KEY_RIGHT_BRACKET && action == GLFW_PRESS) {
+        selectedMaterial = (selectedMaterial + 1) % materialCount;
+    }
+    if (key == GLFW_KEY_LEFT_BRACKET && action == GLFW_PRESS) {
+        selectedMaterial = (selectedMaterial - 1 + materialCount) % materialCount;
     }
 }
 
@@ -68,8 +82,6 @@ int main() {
 
     Simulation simulation;
     simulation.init(gridCols, gridRows);
-    simulation.placeAt(0, gridCols / 2);   // optional — your old hardcoded test seed; keep or drop now that click-placement works
-
     Renderer renderer;
     renderer.init(width, height, gridCols, gridRows);
 
@@ -90,7 +102,8 @@ int main() {
         if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS) {
             int col = (int)(mouseX / cellSize);
             int row = (int)(mouseY / cellSize);
-            simulation.placeAt(row, col);
+            simulation.placeAt(row, col, selectedMaterial);
+            std::cout << "Placed material " << selectedMaterial << " at (" << row << ", " << col << ")\n";
         }
 
         renderer.draw(simulation.cellArray, projection, glm::vec2((float)mouseX, (float)mouseY), gridSize, cellSize);
