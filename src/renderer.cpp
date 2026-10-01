@@ -30,6 +30,7 @@ void main() {
 }
 )";
 
+// vert shader for the grid
 static const char* gridVertexShaderSrc = R"(
 #version 330 core
 layout (location = 0) in vec2 aPos;
@@ -43,6 +44,7 @@ void main() {
 }
 )";
 
+// frag shader for the grid
 static const char* gridFragmentShaderSrc = R"(
 #version 330 core
 in vec2 vPos;
@@ -66,7 +68,7 @@ void main() {
 }
 )";
 
-
+// update the grid texture with the current cell array
 static void updateGridTexture(GLuint texture, const std::vector<std::vector<int>>& cellArray, int gridCols, int gridRows) {
     std::vector<unsigned char> gridPixels(gridCols * gridRows * 3);
     
@@ -84,10 +86,12 @@ static void updateGridTexture(GLuint texture, const std::vector<std::vector<int>
     glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, gridCols, gridRows, GL_RGB, GL_UNSIGNED_BYTE, gridPixels.data());
 }
 
+// renderer initialization
 void Renderer::init(int width, int height, int cols, int rows) {
     gridCols = cols;
     gridRows = rows;
 
+    // create the batching texture
     glGenTextures(1, &texture);
     glBindTexture(GL_TEXTURE_2D, texture);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
@@ -96,6 +100,7 @@ void Renderer::init(int width, int height, int cols, int rows) {
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, gridCols, gridRows, 0, GL_RGB, GL_UNSIGNED_BYTE, nullptr);
 
+    // create the grid quad vertices for rendering
     std::vector<float> gridQuadVertices = {
         //    x,           y,          u,   v
         0.0f,         0.0f,          0.0f, 0.0f,
@@ -104,11 +109,15 @@ void Renderer::init(int width, int height, int cols, int rows) {
         0.0f,         (float)height, 0.0f, 1.0f,
     };
 
+    // gen the vbo and vao for the texture
     glGenVertexArrays(1, &vao);
     glGenBuffers(1, &vbo);
 
+    // bind the vao and vbo for the texture
     glBindVertexArray(vao);
     glBindBuffer(GL_ARRAY_BUFFER, vbo);
+
+    // load the vbo
     glBufferData(GL_ARRAY_BUFFER, gridQuadVertices.size() * sizeof(float), gridQuadVertices.data(), GL_DYNAMIC_DRAW);
 
     // attribute for position
@@ -118,34 +127,51 @@ void Renderer::init(int width, int height, int cols, int rows) {
     glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(2 * sizeof(float)));
     glEnableVertexAttribArray(1);
 
+    // unbind post setup
     glBindVertexArray(0);
 
+    // make the shaders for the texture and grid render
     shader = createShaderProgram(sandVertexShaderSrc, sandFragmentShaderSrc);
     gridShader = createShaderProgram(gridVertexShaderSrc, gridFragmentShaderSrc);
 }
 
+// the actual draw call
 void Renderer::draw(const std::vector<std::vector<int>>& cellArray, const glm::mat4& projection, glm::vec2 cursorPos, int gridRadius, int cellSize) {
+    // update the grid first
     updateGridTexture(texture, cellArray, gridCols, gridRows);
 
+    // use the sim shader
     useProgram(shader);
+    // give the projection to the shader
     glUniformMatrix4fv(glGetUniformLocation(shader, "uProjection"), 1, GL_FALSE, &projection[0][0]);
+    // use the vao
     glBindVertexArray(vao);
+    // use the texture
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, texture);
+    // set the grid texture uniform
     glUniform1i(glGetUniformLocation(shader, "uGridTexture"), 0);
+    // draw the texture
     glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
+    // unbind
     glBindVertexArray(0);
 
+    // use the grid shader
     useProgram(gridShader);
+    // give the projection and other uniforms to the grid shader
     glUniformMatrix4fv(glGetUniformLocation(gridShader, "uProjection"), 1, GL_FALSE, &projection[0][0]);
     glUniform2f(glGetUniformLocation(gridShader, "uCursorPos"), cursorPos.x, cursorPos.y);
     glUniform1f(glGetUniformLocation(gridShader, "uRadius"), (float)gridRadius);
     glUniform1f(glGetUniformLocation(gridShader, "uCellSize"), (float)cellSize);
+    // use the vao
     glBindVertexArray(vao);
+    // draw the grid
     glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
+    // unbind post draw
     glBindVertexArray(0);
 }
 
+// delete all the stuff
 void Renderer::cleanup() {
     glDeleteVertexArrays(1, &vao);
     glDeleteBuffers(1, &vbo);
