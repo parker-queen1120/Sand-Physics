@@ -89,6 +89,18 @@ int main() {
     // initialize the simulation and renderer
     Simulation simulation;
     simulation.init(gridCols, gridRows);
+
+    // debug test case: a contained puddle on the grid floor (sand walls on
+    // both sides so the water can't just drain away), with one sand grain
+    // dropped from high above into the middle of the puddle
+    int floorRow = gridRows - 1;
+    simulation.placeAt(floorRow, 78, 1); // left wall
+    simulation.placeAt(floorRow, 79, 2); // water
+    simulation.placeAt(floorRow, 80, 2); // water
+    simulation.placeAt(floorRow, 81, 2); // water
+    simulation.placeAt(floorRow, 82, 1); // right wall
+    simulation.placeAt(0, 80, 1);        // falling grain, straight above the middle water cell
+
     Renderer renderer;
     renderer.init(width, height, gridCols, gridRows);
 

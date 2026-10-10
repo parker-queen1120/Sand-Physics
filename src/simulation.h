@@ -18,6 +18,6 @@ private:
     std::uniform_int_distribution<int> coinFlip{0, 1};
 
     void step();
-    void stepPowder(int row, int col, int id, std::vector<std::vector<int>>& bufferArray, std::vector<std::vector<int>>& bufferVelocity);
+    void stepPowder(int row, int col, int id, std::vector<std::vector<int>>& bufferArray, std::vector<std::vector<int>>& bufferVelocity, std::vector<std::vector<bool>>& consumed);
     void stepLiquid(int row, int col, int id, std::vector<std::vector<int>>& bufferArray, std::vector<std::vector<int>>& bufferVelocity);
 };

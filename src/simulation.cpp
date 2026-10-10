@@ -1,6 +1,7 @@
 #include "simulation.h"
 #include "materials.h"
 #include <utility>
+#include <iostream>
 
 // simulation initialization
 void Simulation::init(int cols, int rows) {
@@ -37,7 +38,7 @@ void Simulation::update(double deltaTime) {
 }
 
 // function for materials typed as "Powder" and how they move
-void Simulation::stepPowder(int row, int col, int id, std::vector<std::vector<int>>& bufferArray, std::vector<std::vector<int>>& bufferVelocity) {
+void Simulation::stepPowder(int row, int col, int id, std::vector<std::vector<int>>& bufferArray, std::vector<std::vector<int>>& bufferVelocity, std::vector<std::vector<bool>>& consumed) {
     // increase the velocity each frame
     int v = velocityArray[row][col] + 1;
 
@@ -49,15 +50,33 @@ void Simulation::stepPowder(int row, int col, int id, std::vector<std::vector<in
     int steps = 0;
 
     // determine which cell to check based off of velocity (predict how far the block is trying to fall)
-    while (steps < v && row_ + 1 < gridRows && cellArray[row_+1][col] == 0 && bufferArray[row_+1][col] == 0) {
-        row_++;
-        steps++;
+    while (steps < v && 
+           row_+1 < gridRows && 
+           (cellArray[row_+1][col] == 0 || cellArray[row_+1][col] == 2) && 
+           (bufferArray[row_+1][col] == 0 || bufferArray[row_+1][col] == 2)) {
+        row_++; steps++;
     }
-
-    // if the block has moved, place it in the buffer at the predicted position
     if (steps > 0) {
-        bufferArray[row_][col_] = id;
-        bufferVelocity[row_][col_] = v;
+        int displacedId = 0;
+        int displacedVel = 0;
+
+        if (bufferArray[row_][col] == 2) {
+            displacedId = 2;
+            displacedVel = bufferVelocity[row_][col];
+        } else if (cellArray[row_][col] == 2) {
+            displacedId = 2;
+            displacedVel = velocityArray[row_][col];
+        }
+
+        bufferArray[row_][col] = id;
+        bufferVelocity[row_][col] = v;
+
+        if (displacedId != 0) {
+            bufferArray[row][col] = displacedId;
+            bufferVelocity[row][col] = displacedVel;
+            consumed[row_][col] = true; // the original occupant's fate is already decided; don't let it take its own turn later this tick
+        }
+
     } else {
         // if the block did not move downward, try to move diagonally instead
         if (row_ + 1 < gridRows && col_ + 1 < gridCols && cellArray[row_+1][col_+1] == 0 && bufferArray[row_+1][col_+1] == 0) {
@@ -88,16 +107,19 @@ void Simulation::stepLiquid(int row, int col, int id, std::vector<std::vector<in
 
     // step tracking
     int steps = 0;
-    
+
     // attempt to fall based on velocity
-    while (steps < v && row_+1 < gridRows && cellArray[row_+1][col] == 0 && bufferArray[row_+1][col] == 0) {
+    while (steps < v &&
+           row_+1 < gridRows &&
+           cellArray[row_+1][col] == 0 &&
+           bufferArray[row_+1][col] == 0) {
         row_++; steps++;
     }
 
     // fall if you can
     if (steps > 0) {
-        bufferArray[row_][col] = id;
-        bufferVelocity[row_][col] = v;
+        bufferArray[row_][col_] = id;
+        bufferVelocity[row_][col_] = v;
         return;
     }
 
@@ -138,10 +160,17 @@ void Simulation::stepLiquid(int row, int col, int id, std::vector<std::vector<in
 void Simulation::step() {
     std::vector<std::vector<int>> bufferArray(gridRows, std::vector<int>(gridCols, 0));
     std::vector<std::vector<int>> bufferVelocity(gridRows, std::vector<int>(gridCols, 0));
-    
+
+    // tracks cells whose fate was already decided this tick via displacement
+    // (e.g. sand swapping into a water cell before that water gets its own turn)
+    // so step() doesn't re-process them using stale cellArray data and overwrite the swap
+    std::vector<std::vector<bool>> consumed(gridRows, std::vector<bool>(gridCols, false));
+
     // cell iteration
     for (int i = 0; i < gridRows; i++) {
         for (int j = 0; j < gridCols; j++) {
+            if (consumed[i][j]) continue;
+
             // get material id of current cell
             int id = cellArray[i][j];
             // dont update if its air (will be changed if i change air to a gas)
@@ -150,15 +179,19 @@ void Simulation::step() {
             // determine which movement function needs to be used
             switch (materials[id].movement) {
                 case MovementType::Powder:
-                    stepPowder(i, j, id, bufferArray, bufferVelocity);
+                    stepPowder(i, j, id, bufferArray, bufferVelocity, consumed);
                     break;
                 case MovementType::Liquid:
                     stepLiquid(i, j, id, bufferArray, bufferVelocity);
                     break;
+                case MovementType::Static:
+                    bufferArray[i][j] = id;
+                    bufferVelocity[i][j] = 0;
+                    break;
             }
         }
     }
-    //swap the buffers
+   
     cellArray = std::move(bufferArray);
     velocityArray = std::move(bufferVelocity);
 }
